@@ -124,7 +124,7 @@ function AllUsers() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [userTrips, setUserTrips] = useState([]);
     const [loadingTrips, setLoadingTrips] = useState(false);
@@ -212,7 +212,7 @@ function AllUsers() {
             
             <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
-            <div className="dashboard-content-wrapper relative z-10 h-full md:ml-64 lg:ml-72 pt-16 pb-10">
+            <div className={`dashboard-content-wrapper relative z-10 h-full transition-all duration-300 pt-16 pb-10 ${sidebarOpen ? 'md:ml-64 lg:ml-72' : 'ml-0'}`}>
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 w-full">
                     
                     {/* Header */}

@@ -219,7 +219,7 @@ function AdminLogin() {
                     >
                         <div className="absolute inset-0 bg-amber-400 blur-2xl opacity-20 rounded-full"></div>
                         <div className="relative w-20 h-20 bg-white rounded-2xl p-1 shadow-lg border border-gray-100 flex items-center justify-center -rotate-3 hover:rotate-0 transition-transform duration-300">
-                            <img src={xpoolLogo} alt="XPOOL" className="w-full h-full object-cover rounded-xl" />
+                            <img src="/xpoolscreen.png" alt="XPOOL" className="w-full h-full object-cover rounded-xl" />
                         </div>
                         <div className="absolute -bottom-2 -right-2 bg-amber-500 rounded-full p-1.5 shadow-md border-2 border-white">
                             <Shield size={16} className="text-white" />
@@ -228,7 +228,7 @@ function AdminLogin() {
 
                     <div className="text-center mb-8 w-full">
                         <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-2">
-                            {isLogin ? 'Admin Portal' : 'Admin Registration'}
+                            {isLogin ? 'Xpool Admin Portal' : 'Xpool Admin Registration'}
                         </h2>
                         <p className="text-gray-500 text-sm font-medium">
                             {isLogin ? 'Secure access to operational controls' : 'Create an administrative super-user account'}
@@ -336,7 +336,7 @@ function AdminLogin() {
             
             {/* Version / Copyright */}
             <div className="absolute bottom-6 font-semibold text-xs text-amber-900/40 uppercase tracking-widest text-center w-full z-10">
-                XPOOL Operations Panel v2.0
+                Xpool Admin Operations Panel v2.5
             </div>
         </div>
     );

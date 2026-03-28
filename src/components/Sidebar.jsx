@@ -55,20 +55,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setIsOpen(prev => !prev)}
-                        className="p-2 -ml-2 text-gray-700 hover:bg-gray-100/50 rounded-xl transition-colors md:invisible"
+                        className="p-2 -ml-2 text-gray-700 hover:bg-gray-100/50 rounded-xl transition-colors"
+                        aria-label="Toggle Menu"
                     >
                         <Menu size={24} />
                     </button>
                     <div className="flex items-center gap-2">
-                        <img src={xpoolLogo} alt="XPOOL" className="h-9 w-9 rounded-xl object-cover shadow-sm bg-white p-0.5" />
+                        <img src="/xpoolscreen.png" alt="XPOOL" className="h-9 w-9 rounded-xl object-cover shadow-sm bg-white p-0.5" />
                         <div className="flex flex-col">
-                            <span className="font-bold text-gray-900 tracking-tight leading-none">XPOOL</span>
+                            <span className="font-bold text-gray-900 tracking-tight leading-none text-lg">Xpool Admin</span>
                             <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">Operations Panel</span>
                         </div>
                     </div>
                 </div>
                 
-                {/* Desktop Quick Actions / User Profile could go here */}
                 <div className="flex items-center gap-4">
                     <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-full border border-amber-100">
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -77,7 +77,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </div>
             </header>
 
-            {/* Overlay for mobile */}
+            {/* Overlay for mobile/collapsed state */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -86,7 +86,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                         animate="visible"
                         exit="exit"
                         onClick={() => setIsOpen(false)}
-                        className="fixed inset-0 bg-gray-900/30 z-[55] md:hidden"
+                        className="fixed inset-0 bg-gray-900/10 z-[55] md:hidden"
                     />
                 )}
             </AnimatePresence>
@@ -95,12 +95,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <motion.aside
                 variants={sidebarVariants}
                 initial="hidden"
-                animate={typeof window !== 'undefined' && window.innerWidth >= 768 ? "visible" : (isOpen ? "visible" : "hidden")}
+                animate={isOpen ? "visible" : "hidden"}
                 className={cn(
                     "fixed top-16 left-0 bottom-0 z-[65] w-64 lg:w-72 flex flex-col pt-6 pb-6 px-4",
-                    "bg-white/95 border-r border-gray-200/60",
-                    "md:!translate-x-0 md:!opacity-100 md:!flex shadow-2xl md:shadow-none",
-                    !isOpen && "hidden md:flex"
+                    "bg-white/95 border-r border-gray-200/60 shadow-xl md:shadow-none",
+                    !isOpen && "hidden"
                 )}
             >
                 {/* Close button for mobile */}

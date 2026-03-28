@@ -99,7 +99,7 @@ const LiveTracking = () => {
 
     const [drivers, setDrivers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
     
     // Panel & Map State
     const [panelOpen, setPanelOpen] = useState(true);
@@ -177,7 +177,7 @@ const LiveTracking = () => {
             <GlobalStyles />
             <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
-            <div className="dashboard-content-wrapper relative z-10 w-full h-screen md:ml-64 lg:ml-72 flex flex-col pt-16">
+            <div className={`dashboard-content-wrapper relative z-10 w-full h-screen transition-all duration-300 flex flex-col pt-16 ${sidebarOpen ? 'md:ml-64 lg:ml-72' : 'ml-0'}`}>
                 
                 {/* 1. Underlying FULL MAP view */}
                 <div className="absolute inset-x-0 bottom-0 top-16 z-0 bg-gray-100">

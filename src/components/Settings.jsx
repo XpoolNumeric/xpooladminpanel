@@ -6,7 +6,7 @@ import { Save, Loader2, Map as MapIcon, DollarSign, Settings as SettingsIcon } f
 import toast from 'react-hot-toast';
 
 function Settings() {
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
     const [loading, setLoading] = useState(false);
     const [settings, setSettings] = useState({
         price_per_km: 15,
@@ -58,7 +58,7 @@ function Settings() {
     return (
         <div className="bg-gray-50/50 min-h-screen">
             <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-            <div className="md:ml-64 lg:ml-72 pt-16 pb-10">
+            <div className={`transition-all duration-300 pt-16 pb-10 ${sidebarOpen ? 'md:ml-64 lg:ml-72' : 'ml-0'}`}>
                 <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 w-full">
                     <div className="mb-8">
                         <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">

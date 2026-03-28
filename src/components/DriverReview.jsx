@@ -76,7 +76,7 @@ function DriverReview() {
     const [imageModal, setImageModal] = useState({ open: false, url: '', label: '' });
     const [confirmModal, setConfirmModal] = useState({ open: false, action: '', status: '' });
     const [actionLoading, setActionLoading] = useState(false);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
     const [isEditing, setIsEditing] = useState(false);
     const [editedData, setEditedData] = useState({});
 
@@ -276,7 +276,7 @@ function DriverReview() {
             
             <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
-            <div className="dashboard-content-wrapper relative z-10 h-full md:ml-64 lg:ml-72 pt-16 pb-10">
+            <div className={`dashboard-content-wrapper relative z-10 h-full transition-all duration-300 pt-16 pb-10 ${sidebarOpen ? 'md:ml-64 lg:ml-72' : 'ml-0'}`}>
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 w-full">
                     
                     <div className="flex items-center justify-between mb-8">
