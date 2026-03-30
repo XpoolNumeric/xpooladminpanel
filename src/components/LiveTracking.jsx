@@ -39,11 +39,17 @@ const OPTIONS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Icons & Mocks
 // ─────────────────────────────────────────────────────────────────────────────
+const VEHICLE_SVGS = {
+    car: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="%23f59e0b" stroke="%23ffffff" stroke-width="4"/><circle cx="16" cy="16" r="4" fill="%23ffffff"/></svg>`,
+    bike: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="%233b82f6" stroke="%23ffffff" stroke-width="4"/><circle cx="16" cy="16" r="4" fill="%23ffffff"/></svg>`,
+    auto: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="%2310b981" stroke="%23ffffff" stroke-width="4"/><circle cx="16" cy="16" r="4" fill="%23ffffff"/></svg>`,
+};
+
 const VEHICLE_ICONS = {
-    car: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
-    bike: 'https://cdn-icons-png.flaticon.com/512/2972/2972161.png',
-    auto: 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png',
-    suv: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
+    car: VEHICLE_SVGS.car,
+    bike: VEHICLE_SVGS.bike,
+    auto: VEHICLE_SVGS.auto,
+    suv: VEHICLE_SVGS.car,
 };
 
 const CITIES = [
@@ -100,14 +106,14 @@ const LiveTracking = () => {
     const [drivers, setDrivers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
-    
+
     // Panel & Map State
     const [panelOpen, setPanelOpen] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [vehicleFilter, setVehicleFilter] = useState('all'); 
+    const [vehicleFilter, setVehicleFilter] = useState('all');
     const [selectedDriver, setSelectedDriver] = useState(null);
     const [mapInstance, setMapInstance] = useState(null);
-    
+
     const fetchTrackingData = async () => {
         setLoading(true);
         try {
@@ -122,7 +128,7 @@ const LiveTracking = () => {
             const trackedDrivers = (approvedDrivers || []).map((driver, index) => {
                 const baseCity = CITIES[index % CITIES.length];
                 const loc = generateRandomLocation(baseCity.lat, baseCity.lng);
-                
+
                 const vType = driver.vehicle_type?.toLowerCase() || 'car';
                 const iconType = vType.includes('bike') ? 'bike' : vType.includes('auto') ? 'auto' : 'car';
 
@@ -152,11 +158,11 @@ const LiveTracking = () => {
     const filteredDrivers = useMemo(() => {
         return drivers.filter(d => {
             const searchLower = searchQuery.toLowerCase();
-            const matchesSearch = 
-                d.full_name?.toLowerCase().includes(searchLower) || 
-                d.id.substring(0,8).toLowerCase().includes(searchLower) ||
+            const matchesSearch =
+                d.full_name?.toLowerCase().includes(searchLower) ||
+                d.id.substring(0, 8).toLowerCase().includes(searchLower) ||
                 d.vehicle_number?.toLowerCase().includes(searchLower);
-            
+
             const matchesVehicle = vehicleFilter === 'all' || d.iconType === vehicleFilter;
             return matchesSearch && matchesVehicle;
         });
@@ -178,7 +184,7 @@ const LiveTracking = () => {
             <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
             <div className={`dashboard-content-wrapper relative z-10 w-full h-screen transition-all duration-300 flex flex-col pt-16 ${sidebarOpen ? 'md:ml-64 lg:ml-72' : 'ml-0'}`}>
-                
+
                 {/* 1. Underlying FULL MAP view */}
                 <div className="absolute inset-x-0 bottom-0 top-16 z-0 bg-gray-100">
                     {!import.meta.env.VITE_GOOGLE_MAPS_API_KEY && (
@@ -209,8 +215,8 @@ const LiveTracking = () => {
                                     position={driver.location}
                                     icon={{
                                         url: VEHICLE_ICONS[driver.iconType] || VEHICLE_ICONS.car,
-                                        scaledSize: selectedDriver?.id === driver.id 
-                                            ? new window.google.maps.Size(48, 48) 
+                                        scaledSize: selectedDriver?.id === driver.id
+                                            ? new window.google.maps.Size(48, 48)
                                             : new window.google.maps.Size(32, 32),
                                         className: selectedDriver?.id === driver.id ? 'map-marker-pulse' : ''
                                     }}
@@ -226,8 +232,8 @@ const LiveTracking = () => {
                                                 <h4 className="font-bold text-gray-900 text-base m-0 leading-tight block truncate">{driver.full_name}</h4>
                                                 <p className="text-[11px] font-black text-amber-600 mt-1 uppercase underline mb-3 inline-block">ID: {driver.vehicle_number}</p>
                                                 <div className="flex flex-col gap-1.5 text-[11px] font-semibold text-gray-600 border-t border-gray-100 pt-2">
-                                                    <div className="flex items-center gap-2"><MapPin size={12} className="text-emerald-500"/> {driver.city} Zone</div>
-                                                    <div className="flex items-center gap-2"><Navigation size={12} className="text-blue-500"/> Active • {driver.speed}km/h</div>
+                                                    <div className="flex items-center gap-2"><MapPin size={12} className="text-emerald-500" /> {driver.city} Zone</div>
+                                                    <div className="flex items-center gap-2"><Navigation size={12} className="text-blue-500" /> Active • {driver.speed}km/h</div>
                                                 </div>
                                             </div>
                                         </InfoWindow>
@@ -244,9 +250,9 @@ const LiveTracking = () => {
 
                 {/* 2. Floating Overlays Layer (over the exact map bounds) */}
                 <div className="relative z-10 w-full h-[calc(100vh-4rem)] p-4 sm:p-6 pointer-events-none flex flex-col items-end md:items-start gap-3">
-                    
+
                     {/* Floating Toggle Button */}
-                    <button 
+                    <button
                         onClick={() => setPanelOpen(!panelOpen)}
                         className="pointer-events-auto shrink-0 shadow-2xl bg-white/95 backdrop-blur-md px-5 py-3.5 rounded-2xl border border-gray-100/50 flex items-center gap-3 font-extrabold tracking-tight text-gray-900 hover:bg-gray-50 transition-all hover:scale-105 active:scale-95 z-20"
                     >
@@ -273,7 +279,7 @@ const LiveTracking = () => {
                                     {/* Search Input inside Floating Panel */}
                                     <div className="relative mb-3">
                                         <Search className="absolute left-3.5 top-1/2 -transform-translate-y-1/2 text-gray-400 -mt-2.5" size={18} />
-                                        <input 
+                                        <input
                                             type="text"
                                             placeholder="Find driver, ID, or vehicle..."
                                             value={searchQuery}
@@ -295,8 +301,8 @@ const LiveTracking = () => {
                                                 onClick={() => setVehicleFilter(filter.id)}
                                                 className={cn(
                                                     "px-3 py-1.5 rounded-lg font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap",
-                                                    vehicleFilter === filter.id 
-                                                        ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" 
+                                                    vehicleFilter === filter.id
+                                                        ? "bg-amber-500 text-white shadow-md shadow-amber-500/30"
                                                         : "text-gray-500 hover:bg-white hover:text-gray-900"
                                                 )}
                                             >
@@ -323,8 +329,8 @@ const LiveTracking = () => {
                                                 onClick={() => handleDriverSelect(driver)}
                                                 className={cn(
                                                     "w-full text-left p-3.5 rounded-[1rem] transition-all duration-200 border flex flex-col gap-2 group relative overflow-hidden",
-                                                    selectedDriver?.id === driver.id 
-                                                        ? "bg-amber-50 border-amber-400 text-gray-900 shadow-sm shadow-amber-500/10" 
+                                                    selectedDriver?.id === driver.id
+                                                        ? "bg-amber-50 border-amber-400 text-gray-900 shadow-sm shadow-amber-500/10"
                                                         : "bg-white border-gray-100/80 hover:border-amber-300 hover:bg-amber-50/30 hover:shadow-md text-gray-700"
                                                 )}
                                             >
@@ -335,7 +341,7 @@ const LiveTracking = () => {
                                                     <div>
                                                         <span className="font-extrabold text-sm block mb-1 tracking-tight truncate max-w-[150px]">{driver.full_name}</span>
                                                         <span className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest hidden sm:block">
-                                                            ID: #{driver.id.substring(0,6)}
+                                                            ID: #{driver.id.substring(0, 6)}
                                                         </span>
                                                     </div>
                                                     <div className={cn(
@@ -347,8 +353,8 @@ const LiveTracking = () => {
                                                 </div>
 
                                                 <div className="flex items-center gap-3.5 text-[11px] font-semibold pt-2 mt-1 border-t border-gray-100/60">
-                                                    <div className="flex items-center gap-1.5 text-gray-500"><MapPin size={11} className={selectedDriver?.id === driver.id ? "text-amber-500" : "text-emerald-500"}/> {driver.city}</div>
-                                                    <div className="flex items-center gap-1.5 text-gray-500"><Navigation size={11} className={selectedDriver?.id === driver.id ? "text-amber-600" : "text-blue-500"}/> {driver.speed} km/h</div>
+                                                    <div className="flex items-center gap-1.5 text-gray-500"><MapPin size={11} className={selectedDriver?.id === driver.id ? "text-amber-500" : "text-emerald-500"} /> {driver.city}</div>
+                                                    <div className="flex items-center gap-1.5 text-gray-500"><Navigation size={11} className={selectedDriver?.id === driver.id ? "text-amber-600" : "text-blue-500"} /> {driver.speed} km/h</div>
                                                 </div>
                                             </button>
                                         ))

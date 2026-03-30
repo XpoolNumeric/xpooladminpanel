@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import AdminLogin from './components/AdminLogin';
@@ -63,13 +63,15 @@ class ErrorBoundary extends React.Component {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Private Route — Auth guard with role-based access
+// Private Route — Auth guard with shared credentials
 // ─────────────────────────────────────────────────────────────────────────────
 const PrivateRoute = ({ children, allowedRoles = [] }) => {
     const isAuth = localStorage.getItem('adminAuth') === 'true';
-    const role = localStorage.getItem('adminRole') || 'admin';
+    const role = localStorage.getItem('adminRole') || '';
 
-    if (!isAuth) return <Navigate to="/" replace />;
+    if (!isAuth) {
+        return <Navigate to="/" replace />;
+    }
 
     if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
         return <Navigate to="/dashboard" replace />;

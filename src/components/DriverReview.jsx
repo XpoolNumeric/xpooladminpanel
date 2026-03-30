@@ -132,7 +132,7 @@ function DriverReview() {
         }).eq('id', id);
 
         if (!error) {
-            setDriver(editedData);
+            setDriver(prev => ({ ...prev, ...editedData }));
             setIsEditing(false);
             toast.success("Details updated successfully");
         } else {
@@ -145,8 +145,7 @@ function DriverReview() {
         setActionLoading(true);
         try {
             const { error } = await supabase.from('drivers').update({ 
-                status: confirmModal.status,
-                approved_at: confirmModal.status === 'approved' ? new Date().toISOString() : null
+                status: confirmModal.status
             }).eq('id', id);
 
             if (!error) {
@@ -154,7 +153,7 @@ function DriverReview() {
                 
                 // Also update the app backend/state by sending a notification
                 await supabase.from('notifications').insert({
-                    user_id: driver.id,
+                    user_id: driver.user_id,
                     title: `Application ${confirmModal.status.charAt(0).toUpperCase() + confirmModal.status.slice(1)}`,
                     message: confirmModal.status === 'approved' 
                         ? "Congratulations! Your driver application has been approved. You can now start taking rides." 
@@ -210,7 +209,7 @@ function DriverReview() {
         if (!msg) return;
         try {
             const { error } = await supabase.from('notifications').insert({ 
-                user_id: driver.id, 
+                user_id: driver.user_id, 
                 message: msg, 
                 type: 'driver_alert',
                 status: 'unread'
@@ -408,10 +407,7 @@ function DriverReview() {
                                 </div>
                                 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <PhotoCard label="Front View" url={getStorageUrl(driver.vehicle_front_url, 'vehicle_front')} onOpen={setImageModal} />
-                                    <PhotoCard label="Back View" url={getStorageUrl(driver.vehicle_back_url, 'vehicle_back')} onOpen={setImageModal} />
-                                    <PhotoCard label="Left Side" url={getStorageUrl(driver.vehicle_left_url, 'vehicle_left')} onOpen={setImageModal} />
-                                    <PhotoCard label="Right Side" url={getStorageUrl(driver.vehicle_right_url, 'vehicle_right')} onOpen={setImageModal} />
+                                    {/* Vehicle photos have been removed from onboarding */}
                                 </div>
                             </motion.div>
                             

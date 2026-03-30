@@ -183,7 +183,7 @@ const WithdrawalRequests = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
-    
+
     // Filters and Search
     const [searchQuery, setSearchQuery] = useState('');
     const [methodFilter, setMethodFilter] = useState('all'); // all, upi, bank
@@ -255,8 +255,8 @@ const WithdrawalRequests = () => {
 
     const filteredRequests = useMemo(() => {
         return requests.filter(req => {
-            const matchesSearch = req.drivers?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                  req.drivers?.vehicle_number?.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSearch = req.drivers?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                req.drivers?.vehicle_number?.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesMethod = methodFilter === 'all' || req.method === methodFilter;
             return matchesSearch && matchesMethod;
         });
@@ -268,7 +268,7 @@ const WithdrawalRequests = () => {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
     };
-    
+
     const cardVariants = {
         hidden: { opacity: 0, scale: 0.98, y: 10 },
         visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
@@ -279,12 +279,12 @@ const WithdrawalRequests = () => {
         <div className="dashboard-container bg-gray-50/50" style={{ minHeight: '100vh', position: 'relative', background: "linear-gradient(160deg, #fffbeb 0%, #fef9e7 45%, #fffdf5 100%)" }}>
             <GlobalStyles />
             <PulseBackground />
-            
+
             <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
             <div className={`dashboard-content-wrapper relative z-10 h-full transition-all duration-300 pt-16 pb-10 ${sidebarOpen ? 'md:ml-64 lg:ml-72' : 'ml-0'}`}>
                 <main className="dashboard-main max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-                    
+
                     {/* Header Section */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
                         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
@@ -297,7 +297,7 @@ const WithdrawalRequests = () => {
                             <p className="text-gray-500 font-medium">Manage driver withdrawal requests and settlements</p>
                         </motion.div>
 
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
                             className="badge-breathe glass-card flex items-center gap-5 p-4 rounded-2xl"
                         >
@@ -317,13 +317,13 @@ const WithdrawalRequests = () => {
                     </div>
 
                     {/* Toolbar */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
                         className="flex flex-col sm:flex-row gap-4 mb-8"
                     >
                         <div className="relative flex-1 max-w-md">
                             <Search className="absolute left-4 top-1/2 -transform-translate-y-1/2 text-gray-400 -mt-2.5" size={20} />
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Search driver name or vehicle..."
                                 value={searchQuery}
@@ -342,8 +342,8 @@ const WithdrawalRequests = () => {
                                     onClick={() => setMethodFilter(filter.id)}
                                     className={cn(
                                         "px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all",
-                                        methodFilter === filter.id 
-                                            ? "bg-amber-500 text-white shadow-md shadow-amber-500/20" 
+                                        methodFilter === filter.id
+                                            ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
                                             : "text-gray-600 hover:bg-gray-100/80"
                                     )}
                                 >
@@ -361,7 +361,7 @@ const WithdrawalRequests = () => {
                             <p className="text-gray-500 font-medium animate-pulse">Syncing payouts...</p>
                         </div>
                     ) : filteredRequests.length === 0 ? (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                             className="glass-card flex flex-col items-center justify-center p-16 text-center rounded-3xl"
                         >
@@ -370,13 +370,13 @@ const WithdrawalRequests = () => {
                             </div>
                             <h3 className="text-2xl font-bold text-gray-900 mb-2">No Requests Found</h3>
                             <p className="text-gray-500 max-w-sm">
-                                {requests.length === 0 
+                                {requests.length === 0
                                     ? "All drivers are settled up! No pending withdrawal requests at the moment."
                                     : "No requests match your current filters. Try adjusting your search."}
                             </p>
                         </motion.div>
                     ) : (
-                        <motion.div 
+                        <motion.div
                             variants={containerVariants}
                             initial="hidden"
                             animate="visible"
@@ -384,15 +384,15 @@ const WithdrawalRequests = () => {
                         >
                             <AnimatePresence>
                                 {filteredRequests.map(req => (
-                                    <motion.div 
-                                        key={req.id} 
+                                    <motion.div
+                                        key={req.id}
                                         variants={cardVariants}
                                         layout
                                         className="glass-card rounded-2xl overflow-hidden flex flex-col group relative"
                                     >
                                         {/* Status indicator bar top */}
                                         <div className="h-1.5 w-full bg-gradient-to-r from-amber-400 to-amber-600"></div>
-                                        
+
                                         <div className="p-6 flex-1 flex flex-col">
                                             {/* Header */}
                                             <div className="flex justify-between items-start mb-5">
@@ -412,7 +412,7 @@ const WithdrawalRequests = () => {
                                                 <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
                                                     {req.method === 'upi' ? <Zap size={48} /> : <CreditCard size={48} />}
                                                 </div>
-                                                
+
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <div className="px-2.5 py-1 rounded bg-gray-900 text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 w-max">
                                                         {req.method === 'upi' ? 'UPI Transfer' : 'Bank Transfer'}
@@ -423,22 +423,22 @@ const WithdrawalRequests = () => {
                                                     {req.method === 'upi' ? (
                                                         <div className="flex flex-col gap-1">
                                                             <span className="text-xs text-gray-500 font-semibold uppercase">UPI ID</span>
-                                                            <CopyButton text={req.details.upiId} label="UPI ID" />
+                                                            <CopyButton text={req.details?.upiId || '—'} label="UPI ID" />
                                                         </div>
                                                     ) : (
                                                         <>
                                                             <div className="flex flex-col gap-1">
                                                                 <span className="text-xs text-gray-500 font-semibold uppercase">Account No</span>
-                                                                <CopyButton text={req.details.accountNumber} label="A/C No" />
+                                                                <CopyButton text={req.details?.accountNumber || '—'} label="A/C No" />
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-3 mt-1">
                                                                 <div className="flex flex-col gap-1">
                                                                     <span className="text-xs text-gray-500 font-semibold uppercase">IFSC</span>
-                                                                    <CopyButton text={req.details.ifsc} label="IFSC" />
+                                                                    <CopyButton text={req.details?.ifsc || '—'} label="IFSC" />
                                                                 </div>
                                                                 <div className="flex flex-col gap-1">
                                                                     <span className="text-xs text-gray-500 font-semibold uppercase">Holder</span>
-                                                                    <span className="text-sm font-semibold text-gray-800 truncate" title={req.details.holderName}>{req.details.holderName}</span>
+                                                                    <span className="text-sm font-semibold text-gray-800 truncate" title={req.details?.holderName || ''}>{req.details?.holderName || '—'}</span>
                                                                 </div>
                                                             </div>
                                                         </>
@@ -456,14 +456,14 @@ const WithdrawalRequests = () => {
 
                                             {/* Action Buttons */}
                                             <div className="grid grid-cols-2 gap-3 mt-auto">
-                                                <button 
+                                                <button
                                                     onClick={() => handleReject(req.id)}
                                                     className="btn-danger py-3 rounded-xl flex items-center justify-center gap-2"
                                                 >
                                                     <X size={18} strokeWidth={2.5} />
                                                     Reject
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => handleApprove(req.id, req.amount)}
                                                     className="cta-shimmer py-3 rounded-xl flex items-center justify-center gap-2"
                                                 >
