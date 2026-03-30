@@ -215,7 +215,9 @@ function Dashboard() {
                             </h1>
                             <div className="h-1 w-1/3 bg-amber-500 rounded-full mt-2" />
                         </div>
-                        <p className="text-gray-500 font-medium">Welcome back! Here's what's happening today.</p>
+                        <p className="text-gray-500 font-medium tracking-tight">
+                            Welcome back, <span className="text-gray-900 font-black">{localStorage.getItem('adminName') || 'Administrator'}</span>! Here's the platform pulse for today.
+                        </p>
                     </motion.div>
 
                     {/* Stats Grid */}

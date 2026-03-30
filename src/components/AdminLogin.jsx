@@ -139,18 +139,33 @@ function AdminLogin() {
                 if (error) throw error;
 
                 if (data.user) {
-                    const { data: profile } = await supabase
+                    // Fetch full profile details to verify administrative status and store display info
+                    const { data: profile, error: profileError } = await supabase
                         .from('profiles')
-                        .select('role')
+                        .select('role, user_role, full_name, avatar_url, email')
                         .eq('id', data.user.id)
                         .single();
 
-                    if (profile?.role !== 'admin') {
+                    if (profileError || !profile) {
                         await supabase.auth.signOut();
-                        throw new Error("Access denied: Not an administrator");
+                        throw new Error("Administrative profile not found. Please contact system owner.");
                     }
 
+                    // Check for both 'admin' and 'super_admin' roles as per industry standards
+                    const isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
+                    
+                    if (!isAdmin) {
+                        await supabase.auth.signOut();
+                        throw new Error("Access denied: Insufficient administrative privileges.");
+                    }
+
+                    // Set persistent state for the dashboard
                     localStorage.setItem('adminAuth', 'true');
+                    localStorage.setItem('adminRole', profile.role);
+                    localStorage.setItem('adminName', profile.full_name || 'Admin User');
+                    localStorage.setItem('adminEmail', profile.email || data.user.email);
+                    localStorage.setItem('adminAvatar', profile.avatar_url || '');
+                    
                     navigate('/dashboard');
                 }
             } else {
@@ -168,22 +183,30 @@ function AdminLogin() {
                 if (error) throw error;
 
                 if (data.user) {
+                    // Initialize the unified profile record as per the provided schema
                     const { error: profileError } = await supabase
                         .from('profiles')
                         .insert({
                             id: data.user.id,
                             full_name: formData.fullName,
+                            email: formData.email,
                             role: 'admin',
+                            user_role: 'admin', // Internal role set as admin for unified tracking
                             last_screen: 'dashboard',
                             created_at: new Date(),
                             updated_at: new Date()
                         });
 
                     if (profileError) {
-                        console.error('Error creating profile:', profileError);
+                        console.error('Critical: Error initializing administrative profile:', profileError);
+                        // We continue if the auth user was created, but log the error
                     }
 
                     localStorage.setItem('adminAuth', 'true');
+                    localStorage.setItem('adminRole', 'admin');
+                    localStorage.setItem('adminName', formData.fullName);
+                    localStorage.setItem('adminEmail', formData.email);
+                    
                     navigate('/dashboard');
                 }
             }
