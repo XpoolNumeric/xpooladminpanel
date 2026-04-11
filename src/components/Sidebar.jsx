@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, X, Menu, Shield, Wallet, Map, Users, Navigation, Settings as SettingsIcon, FileText, Database, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { LogOut, X, Menu, Shield, Wallet, Map, Users, Navigation, Settings as SettingsIcon, FileText, Database, LayoutDashboard, ChevronRight, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 
@@ -32,6 +32,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { label: 'All Trips',         icon: Map,             path: '/trips' },
         { label: 'Withdrawals',       icon: Wallet,          path: '/withdrawals' },
         { label: 'Live Radar',        icon: Navigation,      path: '/live-tracking' },
+        { label: 'Push Notifications',icon: Bell,            path: '/push-notifications' },
         { label: 'Reports',           icon: FileText,        path: '/reports' },
         { label: 'Logs',              icon: Database,         path: '/logs' },
         { label: 'Settings',          icon: SettingsIcon,    path: '/settings' },

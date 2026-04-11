@@ -14,6 +14,7 @@ import Reports from './components/Reports';
 import LogsPanel from './components/LogsPanel';
 import AdminNotifications from './components/AdminNotifications';
 import PendingDrivers from './components/PendingDrivers';
+import PushNotifications from './components/PushNotifications';
 import './App.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -161,6 +162,7 @@ function App() {
                     <Route path="/driver/:id" element={<PrivateRoute allowedRoles={['super_admin', 'admin']}><DriverReview /></PrivateRoute>} />
                     <Route path="/withdrawals" element={<PrivateRoute allowedRoles={['super_admin', 'admin']}><WithdrawalRequests /></PrivateRoute>} />
                     <Route path="/live-tracking" element={<PrivateRoute allowedRoles={['super_admin', 'admin', 'support']}><LiveTracking /></PrivateRoute>} />
+                    <Route path="/push-notifications" element={<PrivateRoute allowedRoles={['super_admin', 'admin']}><PushNotifications /></PrivateRoute>} />
                     <Route path="/settings" element={<PrivateRoute allowedRoles={['super_admin', 'admin']}><Settings /></PrivateRoute>} />
                     <Route path="/reports" element={<PrivateRoute allowedRoles={['super_admin', 'admin']}><Reports /></PrivateRoute>} />
                     <Route path="/logs" element={<PrivateRoute allowedRoles={['super_admin', 'admin']}><LogsPanel /></PrivateRoute>} />

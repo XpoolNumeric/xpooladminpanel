@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Users, Car, Map, Banknote, Activity, X, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Loader2, Users, Car, Map, Banknote, Activity, X, TrendingUp, ArrowUpRight, ArrowDownRight, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, subDays } from 'date-fns';
@@ -26,6 +26,9 @@ const StatSkeleton = () => (
 function Dashboard() {
     const [stats, setStats] = useState({ users: 0, drivers: 0, trips: 0, earnings: 0, driverEarnings: 0, totalRevenue: 0 });
     const [chartData, setChartData] = useState([]);
+    const [dailyRevenue, setDailyRevenue] = useState({ today: 0, yesterday: 0, dayBefore: 0 });
+    const [allTripsData, setAllTripsData] = useState([]);
+    const [customDate, setCustomDate] = useState('');
     const [loading, setLoading] = useState(true);
     const [showEarningsModal, setShowEarningsModal] = useState(false);
     const navigate = useNavigate();
@@ -42,9 +45,11 @@ function Dashboard() {
                 supabase.from('profiles').select('*', { count: 'exact', head: true }),
                 supabase.from('drivers').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
                 supabase.from('trips').select('*', { count: 'exact', head: true }),
-                supabase.from('trips').select('price_per_seat').eq('status', 'completed'),
+                supabase.from('trips').select('created_at, price_per_seat').eq('status', 'completed'),
                 supabase.from('ride_payments').select('commission_amount, driver_amount')
             ]);
+
+            setAllTripsData(tripsData || []);
 
             const commission = paymentsData?.reduce((acc, p) => acc + (Number(p.commission_amount) || 0), 0) || 0;
             const driverTotal = paymentsData?.reduce((acc, p) => acc + (Number(p.driver_amount) || 0), 0) || 0;
@@ -72,15 +77,32 @@ function Dashboard() {
                 grouped[dateStr] = 0;
             }
 
+            let revToday = 0;
+            let revYesterday = 0;
+            let revDayBefore = 0;
+            const now = new Date();
+
             if (trendData) {
                 trendData.forEach(trip => {
-                    const dateStr = format(new Date(trip.created_at), 'EEE');
+                    const tripDate = new Date(trip.created_at);
                     const tripRevenue = (trip.price_per_seat || 0) * (trip.seats_booked || 1);
+                    
+                    if (tripDate.toDateString() === now.toDateString()) {
+                        revToday += tripRevenue;
+                    } else if (tripDate.toDateString() === subDays(now, 1).toDateString()) {
+                        revYesterday += tripRevenue;
+                    } else if (tripDate.toDateString() === subDays(now, 2).toDateString()) {
+                        revDayBefore += tripRevenue;
+                    }
+
+                    const dateStr = format(tripDate, 'EEE');
                     if (grouped[dateStr] !== undefined) {
                         grouped[dateStr] += tripRevenue;
                     }
                 });
             }
+
+            setDailyRevenue({ today: revToday, yesterday: revYesterday, dayBefore: revDayBefore });
 
             const finalChart = Object.keys(grouped).map(day => ({
                 name: day,
@@ -113,6 +135,19 @@ function Dashboard() {
         hidden: { opacity: 0, scale: 0.98, y: 10 },
         visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }
     };
+
+    const customDateRevenue = React.useMemo(() => {
+        if (!customDate || !allTripsData.length) return null;
+        let rev = 0;
+        const selectedDateStr = new Date(customDate).toDateString();
+        allTripsData.forEach(trip => {
+            const tripDate = new Date(trip.created_at);
+            if (tripDate.toDateString() === selectedDateStr) {
+                rev += (trip.price_per_seat || 0);
+            }
+        });
+        return rev;
+    }, [customDate, allTripsData]);
 
     const statCards = [
         { label: 'Total Users', value: stats.users, trend: '+12%', isPositive: true, icon: Users, color: 'text-blue-500', bg: 'bg-blue-100', action: () => navigate('/users') },
@@ -168,24 +203,56 @@ function Dashboard() {
 
             {/* Chart Section */}
             <div className="mb-12">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl">
-                        <Activity size={22} />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl">
+                            <Activity size={22} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900">Revenue Overview</h2>
+                            <p className="text-xs text-gray-400 font-medium">Date-wise breakdown & 7-day trend</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-900">Revenue Overview</h2>
-                        <p className="text-xs text-gray-400 font-medium">Live 7-day trend from completed trips</p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                    <div className="glass-card p-4 rounded-2xl border border-gray-100/50 bg-gradient-to-br from-white to-emerald-50/30">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">Today</span>
+                        <div className="text-xl font-black text-emerald-600">{formatCurrency(dailyRevenue.today)}</div>
                     </div>
-                    <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100">
+                    <div className="glass-card p-4 rounded-2xl border border-gray-100/50 bg-gradient-to-br from-white to-blue-50/30">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">Yesterday</span>
+                        <div className="text-xl font-black text-blue-600">{formatCurrency(dailyRevenue.yesterday)}</div>
+                    </div>
+                    <div className="glass-card p-4 rounded-2xl border border-gray-100/50 bg-gradient-to-br from-white to-purple-50/30">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">Day Before</span>
+                        <div className="text-xl font-black text-purple-600">{formatCurrency(dailyRevenue.dayBefore)}</div>
+                    </div>
+                    <div className="glass-card p-4 rounded-2xl border border-gray-100/50 bg-gradient-to-br from-white to-orange-50/30 flex flex-col justify-center">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest block">Custom</span>
+                            <input 
+                                type="date" 
+                                value={customDate}
+                                onChange={(e) => setCustomDate(e.target.value)}
+                                className="text-[10px] font-semibold text-orange-600 bg-orange-100/50 border border-orange-200/50 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-orange-400/50 transition-all cursor-pointer"
+                            />
+                        </div>
+                        <div className="text-xl font-black text-orange-600">
+                            {customDateRevenue !== null ? formatCurrency(customDateRevenue) : '-'}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="glass-card p-6 border border-gray-100/50 rounded-3xl h-[300px] w-full relative">
+                    <div className="absolute top-4 right-6 flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100 z-10">
                         <TrendingUp size={14} className="text-emerald-500" />
                         <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
                             {formatCurrency(stats.totalRevenue)} Total
                         </span>
                     </div>
-                </div>
-                <div className="glass-card p-6 border border-gray-100/50 rounded-3xl h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
-                        <AreaChart data={chartData}>
+                        <AreaChart data={chartData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
