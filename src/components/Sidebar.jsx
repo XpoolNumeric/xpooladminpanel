@@ -129,7 +129,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                 key={item.path}
                                 onClick={() => navigate(item.path)}
                                 className={cn(
-                                    "w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all duration-200 group text-[13px] font-semibold relative overflow-hidden",
+                                    "w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 group text-[13px] font-semibold relative overflow-hidden",
                                     isActive
                                         ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20"
                                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -155,38 +155,38 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </nav>
 
                 {/* ── Admin Profile ───────────────────────────────────── */}
-                <div className="mb-4 mt-6 p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 flex items-center gap-3.5 transition-all hover:shadow-md group">
+                <div className="mb-3 mt-4 p-3 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 flex items-center gap-3 transition-all hover:shadow-md group">
                     <div className="relative shrink-0">
                         {localStorage.getItem('adminAvatar') ? (
                             <img 
                                 src={localStorage.getItem('adminAvatar')} 
                                 alt="Admin" 
-                                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm"
                             />
                         ) : (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-sm border-2 border-white flex items-center justify-center text-white font-black text-sm uppercase">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-sm border-2 border-white flex items-center justify-center text-white font-black text-sm uppercase">
                                 {localStorage.getItem('adminName')?.charAt(0) || 'A'}
                             </div>
                         )}
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
                     </div>
                     <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-bold text-gray-900 truncate tracking-tight">
+                        <span className="text-[13px] font-bold text-gray-900 truncate tracking-tight">
                             {localStorage.getItem('adminName') || 'Admin'}
                         </span>
-                        <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-widest truncate w-max mt-0.5">
+                        <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-widest truncate w-max mt-0.5">
                             {localStorage.getItem('adminRole') || 'Administrator'}
                         </span>
                     </div>
                 </div>
 
                 {/* ── Logout ─────────────────────────────────────────── */}
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-3 border-t border-gray-100">
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-red-600 bg-red-50/80 hover:bg-red-100 rounded-xl transition-all active:scale-[0.98] border border-red-100/50"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-bold text-red-600 bg-red-50/80 hover:bg-red-100 rounded-xl transition-all active:scale-[0.98] border border-red-100/50"
                     >
-                        <LogOut size={17} />
+                        <LogOut size={16} />
                         Logout Securely
                     </button>
                 </div>
