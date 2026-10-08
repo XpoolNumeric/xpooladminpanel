@@ -31,13 +31,16 @@ function AdminLogin() {
         setError(null);
 
         try {
-            const expectedEmail = import.meta.env.VITE_ADMIN_EMAIL || 'xpooladmin@gmail.com';
-            const expectedPass = import.meta.env.VITE_ADMIN_PASSWORD || 'Xpool@09';
+            const expectedEmail = import.meta.env.VITE_ADMIN_EMAIL || 'Xadmin@gmail.com';
+            const expectedPass = import.meta.env.VITE_ADMIN_PASSWORD || 'Xadmin@5001';
 
             // Simulate slight network delay for natural UX
             await new Promise(resolve => setTimeout(resolve, 800));
 
-            if (formData.email !== expectedEmail || formData.password !== expectedPass) {
+            const inputEmail = (formData.email || '').trim().toLowerCase();
+            const targetEmail = expectedEmail.trim().toLowerCase();
+
+            if (inputEmail !== targetEmail || formData.password !== expectedPass) {
                 throw new Error("Invalid administrative credentials");
             }
 
