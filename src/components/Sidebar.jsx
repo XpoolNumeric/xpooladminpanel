@@ -63,7 +63,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                         <Menu size={22} strokeWidth={2.5} />
                     </button>
                     <div className="flex items-center gap-2.5">
-                        <img src="/xpoolscreen.png" alt="XPOOL" className="h-9 w-9 rounded-xl object-cover shadow-sm bg-white p-0.5 border border-gray-100" />
+                        <img src="/XPOOL_LOGO.png" alt="XPOOL" className="h-9 w-9 rounded-xl object-cover shadow-sm bg-white p-0.5 border border-gray-100" />
                         <div className="flex flex-col">
                             <span className="font-extrabold text-gray-900 tracking-tight leading-none text-[17px]">Xpool Admin</span>
                             <span className="text-[9px] font-black text-amber-500 uppercase tracking-[0.2em] mt-0.5">Operations Panel</span>

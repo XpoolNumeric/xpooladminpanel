@@ -84,7 +84,7 @@ function AdminLogin() {
                     >
                         <div className="absolute inset-0 bg-amber-400 blur-2xl opacity-20 rounded-full"></div>
                         <div className="relative w-20 h-20 bg-white rounded-2xl p-1 shadow-lg border border-gray-100 flex items-center justify-center -rotate-3 hover:rotate-0 transition-transform duration-300">
-                            <img src="/xpoolscreen.png" alt="XPOOL" className="w-full h-full object-cover rounded-xl" />
+                            <img src="/XPOOL_LOGO.png" alt="XPOOL" className="w-full h-full object-cover rounded-xl" />
                         </div>
                         <div className="absolute -bottom-2 -right-2 bg-amber-500 rounded-full p-1.5 shadow-md border-2 border-white">
                             <Shield size={16} className="text-white" />
