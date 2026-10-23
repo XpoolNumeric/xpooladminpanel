@@ -1,42 +1,44 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, X, Menu, Shield, Wallet, Map, Users, Navigation, Settings as SettingsIcon, FileText, Database, LayoutDashboard, ChevronRight, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
+import { useStaffAuth } from '../context/StaffAuthContext';
+import { ROLE_LABELS } from '../lib/staffService';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { staff, hasPermission, logout } = useStaffAuth();
 
-    // BUG FIX: Only close sidebar on route change for MOBILE screens
-    // Previously this closed the sidebar on ALL screens including desktop
+    // Close sidebar on route change for MOBILE screens
     useEffect(() => {
         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
             setIsOpen(false);
         }
     }, [location.pathname, setIsOpen]);
 
-    const handleLogout = () => {
-        localStorage.removeItem('adminAuth');
-        localStorage.removeItem('adminRole');
-        localStorage.removeItem('adminName');
-        localStorage.removeItem('adminEmail');
-        localStorage.removeItem('adminAvatar');
-        navigate('/');
+    const handleLogout = async () => {
+        await logout();
     };
 
-    const navItems = [
-        { label: 'Dashboard',         icon: LayoutDashboard, path: '/dashboard' },
-        { label: 'Pending Approvals', icon: Shield,          path: '/approvals' },
-        { label: 'All Users',         icon: Users,           path: '/users' },
-        { label: 'All Trips',         icon: Map,             path: '/trips' },
-        { label: 'Withdrawals',       icon: Wallet,          path: '/withdrawals' },
-        { label: 'Live Radar',        icon: Navigation,      path: '/live-tracking' },
-        { label: 'Push Notifications',icon: Bell,            path: '/push-notifications' },
-        { label: 'Reports',           icon: FileText,        path: '/reports' },
-        { label: 'Logs',              icon: Database,         path: '/logs' },
-        { label: 'Settings',          icon: SettingsIcon,    path: '/settings' },
+    const allNavItems = [
+        { label: 'Dashboard',                 icon: LayoutDashboard, path: '/dashboard',          permission: 'dashboard.view' },
+        { label: 'Driver Proofs & Approvals', icon: Shield,          path: '/approvals',          permission: 'driver_approvals.view' },
+        { label: 'All Users',                 icon: Users,           path: '/users',              permission: 'users.view' },
+        { label: 'All Trips',         icon: Map,             path: '/trips',              permission: 'trips.view' },
+        { label: 'Withdrawals',       icon: Wallet,          path: '/withdrawals',        permission: 'financials.view' },
+        { label: 'Live Radar',        icon: Navigation,      path: '/live-tracking',      permission: 'trips.view' },
+        { label: 'Push Notifications',icon: Bell,            path: '/push-notifications', permission: 'notifications.view' },
+        { label: 'Reports',           icon: FileText,        path: '/reports',            permission: 'reports.view' },
+        { label: 'Logs',              icon: Database,        path: '/logs',               permission: 'logs.view' },
+        { label: 'Settings',          icon: SettingsIcon,    path: '/settings',           permission: 'settings.view' },
     ];
+
+    // Filter nav items by effective permissions
+    const visibleNavItems = useMemo(() => {
+        return allNavItems.filter(item => !item.permission || hasPermission(item.permission));
+    }, [hasPermission]);
 
     const sidebarVariants = {
         hidden: { x: '-100%', opacity: 0 },
@@ -49,6 +51,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         visible: { opacity: 1, transition: { duration: 0.15 } },
         exit: { opacity: 0, transition: { duration: 0.1 } }
     };
+
+    const roleDisplayName = ROLE_LABELS[staff?.role] || staff?.role || 'Staff Member';
 
     return (
         <>
@@ -114,6 +118,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     <button
                         className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl transition-colors"
                         onClick={() => setIsOpen(false)}
+                        aria-label="Close Sidebar"
                     >
                         <X size={18} />
                     </button>
@@ -121,7 +126,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
                 {/* ── Navigation ─────────────────────────────────────── */}
                 <nav className="flex-1 space-y-1 overflow-y-auto pr-1 -mr-1 custom-scrollbar">
-                    {navItems.map((item) => {
+                    {visibleNavItems.map((item) => {
                         const isActive = location.pathname === item.path;
                         const Icon = item.icon;
                         return (
@@ -154,28 +159,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     })}
                 </nav>
 
-                {/* ── Admin Profile ───────────────────────────────────── */}
+                {/* ── Staff Profile ───────────────────────────────────── */}
                 <div className="mb-3 mt-4 p-3 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 flex items-center gap-3 transition-all hover:shadow-md group">
                     <div className="relative shrink-0">
-                        {localStorage.getItem('adminAvatar') ? (
-                            <img 
-                                src={localStorage.getItem('adminAvatar')} 
-                                alt="Admin" 
-                                className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm"
-                            />
-                        ) : (
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-sm border-2 border-white flex items-center justify-center text-white font-black text-sm uppercase">
-                                {localStorage.getItem('adminName')?.charAt(0) || 'A'}
-                            </div>
-                        )}
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-sm border-2 border-white flex items-center justify-center text-white font-black text-sm uppercase">
+                            {(staff?.name || staff?.email)?.charAt(0) || 'A'}
+                        </div>
                         <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
                     </div>
                     <div className="flex flex-col min-w-0">
                         <span className="text-[13px] font-bold text-gray-900 truncate tracking-tight">
-                            {localStorage.getItem('adminName') || 'Admin'}
+                            {staff?.name || 'Staff User'}
                         </span>
-                        <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-widest truncate w-max mt-0.5">
-                            {localStorage.getItem('adminRole') || 'Administrator'}
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded uppercase tracking-wider truncate w-max mt-0.5">
+                            {roleDisplayName}
                         </span>
                     </div>
                 </div>

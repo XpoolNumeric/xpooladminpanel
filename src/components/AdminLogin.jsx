@@ -31,27 +31,68 @@ function AdminLogin() {
         setError(null);
 
         try {
-            const expectedEmail = import.meta.env.VITE_ADMIN_EMAIL || 'Xadmin@gmail.com';
-            const expectedPass = import.meta.env.VITE_ADMIN_PASSWORD || 'Xadmin@5001';
-
-            // Simulate slight network delay for natural UX
-            await new Promise(resolve => setTimeout(resolve, 800));
-
             const inputEmail = (formData.email || '').trim().toLowerCase();
-            const targetEmail = expectedEmail.trim().toLowerCase();
+            const password = formData.password;
 
-            if (inputEmail !== targetEmail || formData.password !== expectedPass) {
-                throw new Error("Invalid administrative credentials");
+            if (!inputEmail || !password) {
+                throw new Error("Email and password are required.");
+            }
+
+            // Real Supabase Auth login
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: inputEmail,
+                password: password
+            });
+
+            if (authError) {
+                throw authError;
+            }
+
+            const user = authData?.user;
+            if (!user) {
+                throw new Error("Authentication failed: No user returned.");
+            }
+
+            // Verify administrative or staff privileges in staff_members or profiles
+            const { data: staffMember } = await supabase
+                .from('staff_members')
+                .select('role, full_name, is_active')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role, user_role, full_name, email')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            const role = staffMember?.role || profile?.role || profile?.user_role || user.app_metadata?.role;
+            const isAuthorized = staffMember ? Boolean(staffMember.is_active) : (role === 'admin' || role === 'super_admin');
+
+            if (!isAuthorized) {
+                await supabase.auth.signOut();
+                throw new Error("Access Denied: You do not have staff or administrative privileges.");
             }
 
             // Set persistent state for the dashboard
             localStorage.setItem('adminAuth', 'true');
-            localStorage.setItem('adminRole', 'super_admin');
-            localStorage.setItem('adminName', 'System Admin');
-            localStorage.setItem('adminEmail', expectedEmail);
+            localStorage.setItem('adminRole', role || 'staff');
+            localStorage.setItem('adminName', staffMember?.full_name || profile?.full_name || user.user_metadata?.full_name || 'Staff User');
+            localStorage.setItem('adminEmail', user.email);
             localStorage.setItem('adminAvatar', '');
             
-            navigate('/dashboard');
+            // Direct staff to their primary authorized module
+            let targetRoute = '/dashboard';
+            const effectiveRole = staffMember?.role || role;
+            if (effectiveRole === 'marketing') {
+                targetRoute = '/push-notifications';
+            } else if (effectiveRole === 'support') {
+                targetRoute = '/users';
+            } else if (effectiveRole === 'proofs_manager') {
+                targetRoute = '/approvals';
+            }
+            
+            navigate(targetRoute);
         } catch (err) {
             console.error("Auth Error:", err);
             setError(err.message || "Authentication failed");

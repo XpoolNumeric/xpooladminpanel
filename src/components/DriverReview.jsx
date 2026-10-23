@@ -1,16 +1,36 @@
 import React, { useEffect, useState, memo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { ArrowLeft, Check, X, Loader2, FileText, Smartphone, Mail, Calendar, Briefcase, MapPin, ZoomIn, Car, FileCheck, Info, Search, Clock, Power, Bell, Edit2, Save, User, Zap, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Check, X, Loader2, FileText, Smartphone, Mail, Calendar, Briefcase, MapPin, ZoomIn, Car, FileCheck, Info, Search, Clock, Power, Bell, Edit2, Save, User, Zap, ShieldCheck, AlertTriangle, ExternalLink, RefreshCw, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getContactEmail, formatPhoneDisplay } from '../lib/identityUtils';
 
 function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
+
+const extractStoragePath = (rawPath, folder) => {
+    if (!rawPath) return null;
+    let clean = String(rawPath).trim();
+    if (clean.includes('/storage/v1/object/public/driver-docs/')) {
+        clean = clean.split('/storage/v1/object/public/driver-docs/')[1];
+    } else if (clean.includes('/storage/v1/object/sign/driver-docs/')) {
+        clean = clean.split('/storage/v1/object/sign/driver-docs/')[1].split('?')[0];
+    } else if (clean.includes('/driver-docs/')) {
+        clean = clean.split('/driver-docs/')[1].split('?')[0];
+    } else if (!clean.includes('/') && folder) {
+        clean = `${folder}/${clean}`;
+    }
+    clean = clean.split('?')[0].replace(/^\/+/, '');
+    try {
+        clean = decodeURIComponent(clean);
+    } catch (e) {}
+    return clean;
+};
 
 const GlobalStyles = () => (
     <style>{`
@@ -80,13 +100,42 @@ function DriverReview() {
     const [isEditing, setIsEditing] = useState(false);
     const [editedData, setEditedData] = useState({});
     const [verifyingDetails, setVerifyingDetails] = useState(false);
+    const [signedUrls, setSignedUrls] = useState({});
+    const [resolvingUrls, setResolvingUrls] = useState(false);
+
+    const getStorageUrl = (path, folder) => {
+        if (!path) return null;
+        const cleanPath = extractStoragePath(path, folder);
+        if (!cleanPath) return null;
+        const bucket = 'driver-docs';
+        const projectUrl = import.meta.env.VITE_SUPABASE_URL || 'https://zuppuxrammhisswduryw.supabase.co';
+        return `${projectUrl}/storage/v1/object/public/${bucket}/${cleanPath}`;
+    };
+
+    const resolveSignedUrl = async (path, folder) => {
+        if (!path) return null;
+        const cleanPath = extractStoragePath(path, folder);
+        if (!cleanPath) return null;
+
+        try {
+            const { data, error } = await supabase.storage
+                .from('driver-docs')
+                .createSignedUrl(cleanPath, 3600);
+            if (!error && data?.signedUrl) {
+                return data.signedUrl;
+            }
+        } catch (e) {
+            console.warn('[DriverReview] Signed URL exception for', cleanPath, e);
+        }
+        return getStorageUrl(path, folder);
+    };
 
     useEffect(() => {
         fetchDriverDetails();
 
         const interval = setInterval(() => {
             if (!isEditing) fetchDriverDetails(false);
-        }, 10000);
+        }, 15000);
 
         return () => clearInterval(interval);
     }, [id, isEditing]);
@@ -98,27 +147,39 @@ function DriverReview() {
             if (!error && data) {
                 setDriver(data);
                 setEditedData(data);
+
+                // Asynchronously fetch signed URLs for all documents in parallel
+                setResolvingUrls(true);
+                const docKeys = [
+                    { key: 'dl_front', path: data.dl_front_url, folder: 'dl_front' },
+                    { key: 'dl_back', path: data.dl_back_url, folder: 'dl_back' },
+                    { key: 'rc_front', path: data.rc_front_url, folder: 'rc_front' },
+                    { key: 'rc_back', path: data.rc_back_url, folder: 'rc_back' },
+                    { key: 'id_front', path: data.aadhaar_pan_front_url, folder: data.aadhaar_pan_front_url?.includes('pan_') ? 'pan_front' : 'aadhaar_front' },
+                    { key: 'id_back', path: data.aadhaar_pan_back_url, folder: data.aadhaar_pan_back_url?.includes('pan_') ? 'pan_back' : 'aadhaar_back' },
+                    { key: 'insurance', path: data.insurance_url, folder: 'insurance' },
+                    { key: 'profile_photo', path: data.profile_photo_url, folder: 'profile_photos' },
+                ];
+
+                const resolved = await Promise.all(
+                    docKeys.map(async (d) => {
+                        if (!d.path) return [d.key, null];
+                        try {
+                            const url = await resolveSignedUrl(d.path, d.folder);
+                            return [d.key, url];
+                        } catch (e) {
+                            return [d.key, getStorageUrl(d.path, d.folder)];
+                        }
+                    })
+                );
+                setSignedUrls(Object.fromEntries(resolved));
+                setResolvingUrls(false);
             }
         } catch (err) {
             console.error("Fetch error:", err);
         } finally {
             setLoading(false);
         }
-    };
-
-    const getStorageUrl = (path, folder) => {
-        if (!path) return null;
-        if (path.startsWith('http')) return path;
-
-        // Construct public URL for Supabase Storage
-        // Based on screenshot bucket: driver-docs
-        const bucket = 'driver-docs';
-        const projectUrl = import.meta.env.VITE_SUPABASE_URL;
-
-        // If path is just filename, prepend folder
-        const finalPath = path.includes('/') ? path : `${folder}/${path}`;
-
-        return `${projectUrl}/storage/v1/object/public/${bucket}/${finalPath}`;
     };
 
     const urlToBase64 = async (url) => {
@@ -145,41 +206,101 @@ function DriverReview() {
         try {
             const frontBase64 = frontUrl ? await urlToBase64(frontUrl) : null;
             const backBase64 = backUrl ? await urlToBase64(backUrl) : null;
+            const openRouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+            const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-            if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
-
-            const baseInstruction = `You are a highly advanced AI anti-fraud and identity verification system specialized strictly in Indian Government Documents. Extract text via OCR.`;
+            const baseInstruction = `You are a specialized AI anti-fraud OCR system for Indian Government Documents. Extract text accurately. Return ONLY a single raw JSON object matching the requested schema. No markdown backticks, no explanatory text.`;
             let instruction = '';
 
             if (type === 'DL') {
-                instruction = `${baseInstruction}\nAnalyze Driving License (DL) images. Output ONLY JSON exactly like this:\n{\n  "extracted_data": { "name": "", "dl_number": "", "dob": "" }\n}`;
+                instruction = `${baseInstruction}\nAnalyze Driving License (DL). Return strictly:\n{\n  "extracted_data": { "name": "FULL NAME", "dl_number": "DL NUMBER", "dob": "YYYY-MM-DD" }\n}`;
             } else if (type === 'RC') {
-                instruction = `${baseInstruction}\nAnalyze Registration Certificate (RC) images. Output ONLY JSON exactly like this:\n{\n  "extracted_data": { "name": "", "vehicle_number": "", "vehicle_class": "" }\n}`;
+                instruction = `${baseInstruction}\nAnalyze Registration Certificate (RC). Return strictly:\n{\n  "extracted_data": { "name": "OWNER NAME", "vehicle_number": "VEHICLE REG NUMBER", "vehicle_class": "4-Wheeler or 2-Wheeler" }\n}`;
             } else if (type === 'ID') {
-                instruction = `${baseInstruction}\nAnalyze Aadhaar/PAN ID images. Output ONLY JSON exactly like this:\n{\n  "extracted_data": { "name": "", "id_number": "" }\n}`;
+                instruction = `${baseInstruction}\nAnalyze Aadhaar or PAN card. Return strictly:\n{\n  "extracted_data": { "name": "FULL NAME", "id_number": "AADHAAR OR PAN NUMBER" }\n}`;
             }
 
-            const parts = [{ text: "Analyze and output ONLY valid JSON." }];
-            if (frontBase64) parts.push({ inline_data: { mime_type: "image/jpeg", data: frontBase64 } });
-            if (backBase64) parts.push({ inline_data: { mime_type: "image/jpeg", data: backBase64 } });
+            // 1. Primary: OpenRouter Vision API
+            if (openRouterKey) {
+                const userContent = [{ type: 'text', text: instruction }];
+                if (frontBase64) {
+                    userContent.push({
+                        type: 'image_url',
+                        image_url: { url: `data:image/jpeg;base64,${frontBase64}` }
+                    });
+                }
+                if (backBase64) {
+                    userContent.push({
+                        type: 'image_url',
+                        image_url: { url: `data:image/jpeg;base64,${backBase64}` }
+                    });
+                }
 
-            const requestBody = {
-                system_instruction: { parts: [{ text: instruction }] },
-                contents: [{ parts }],
-                generationConfig: { response_mime_type: "application/json", temperature: 0.1 }
-            };
+                // Supported vision models (free tier prioritized, fallback to paid if credits added)
+                const models = [
+                    'nvidia/nemotron-3.5-super-vl:free',
+                    'google/gemini-2.5-flash',
+                    'google/gemini-flash-1.5'
+                ];
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requestBody),
-            });
-            if (!response.ok) throw new Error("API call failed");
+                for (const model of models) {
+                    try {
+                        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${openRouterKey}`,
+                                'HTTP-Referer': window.location.origin || 'https://xpool.app',
+                                'X-Title': 'Xpool Driver Proof AI'
+                            },
+                            body: JSON.stringify({
+                                model,
+                                messages: [{ role: 'user', content: userContent }],
+                                temperature: 0.1
+                            })
+                        });
 
-            const data = await response.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!text) throw new Error("No response string");
+                        if (response.ok) {
+                            const data = await response.json();
+                            const rawText = data.choices?.[0]?.message?.content;
+                            if (rawText) {
+                                const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                                return JSON.parse(cleanJson);
+                            }
+                        }
+                    } catch (modelErr) {
+                        console.warn(`[OpenRouter] Model ${model} attempt error, continuing...`, modelErr);
+                    }
+                }
+            }
 
-            return JSON.parse(text.replace(/```json/g, '').replace(/```/g, '').trim());
+            // 2. Secondary: Fallback to Direct Google Gemini API
+            if (geminiKey) {
+                const parts = [{ text: instruction }];
+                if (frontBase64) parts.push({ inline_data: { mime_type: "image/jpeg", data: frontBase64 } });
+                if (backBase64) parts.push({ inline_data: { mime_type: "image/jpeg", data: backBase64 } });
+
+                const requestBody = {
+                    contents: [{ parts }],
+                    generationConfig: { response_mime_type: "application/json", temperature: 0.1 }
+                };
+
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(requestBody),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) {
+                        return JSON.parse(text.replace(/```json/g, '').replace(/```/g, '').trim());
+                    }
+                }
+            }
+
+            throw new Error("No AI OCR provider responded successfully.");
         } catch (e) {
             console.error(`Error verifying ${type}:`, e);
             return null;
@@ -191,12 +312,12 @@ function DriverReview() {
         const toastId = toast.loading("AI is scanning and verifying documents...", { duration: 15000 });
 
         try {
-            const dlFrontUrl = getStorageUrl(driver.dl_front_url, 'dl_front');
-            const dlBackUrl = getStorageUrl(driver.dl_back_url, 'dl_back');
-            const rcFrontUrl = getStorageUrl(driver.rc_front_url, 'rc_front');
-            const rcBackUrl = getStorageUrl(driver.rc_back_url, 'rc_back');
-            const idFrontUrl = getStorageUrl(driver.aadhaar_pan_front_url, 'aadhaar_front');
-            const idBackUrl = getStorageUrl(driver.aadhaar_pan_back_url, 'aadhaar_back');
+            const dlFrontUrl = signedUrls['dl_front'] || getStorageUrl(driver.dl_front_url, 'dl_front');
+            const dlBackUrl = signedUrls['dl_back'] || getStorageUrl(driver.dl_back_url, 'dl_back');
+            const rcFrontUrl = signedUrls['rc_front'] || getStorageUrl(driver.rc_front_url, 'rc_front');
+            const rcBackUrl = signedUrls['rc_back'] || getStorageUrl(driver.rc_back_url, 'rc_back');
+            const idFrontUrl = signedUrls['id_front'] || getStorageUrl(driver.aadhaar_pan_front_url, 'aadhaar_front');
+            const idBackUrl = signedUrls['id_back'] || getStorageUrl(driver.aadhaar_pan_back_url, 'aadhaar_back');
 
             const [dlRes, rcRes, idRes] = await Promise.all([
                 runAIVerify(dlFrontUrl, dlBackUrl, 'DL'),
@@ -259,31 +380,48 @@ function DriverReview() {
     const updateStatus = async () => {
         setActionLoading(true);
         try {
-            const { error } = await supabase.from('drivers').update({
-                status: confirmModal.status
-            }).eq('id', id);
-
-            if (!error) {
-                toast.success(`Driver ${confirmModal.status} successfully!`);
-
-                // Also update the app backend/state by sending a notification
-                await supabase.from('notifications').insert({
-                    user_id: driver.user_id,
-                    title: `Application ${confirmModal.status.charAt(0).toUpperCase() + confirmModal.status.slice(1)}`,
-                    message: confirmModal.status === 'approved'
-                        ? "Congratulations! Your driver application has been approved. You can now start taking rides."
-                        : "Your application was not approved. Please review your documents and try again.",
-                    type: 'system',
-                    status: 'unread'
-                }).select();
-
-                // Small delay for UI and then navigate back
-                setTimeout(() => {
-                    navigate('/dashboard');
-                }, 1500);
-            } else {
-                throw error;
+            let rpcSuccess = false;
+            // 1. Try atomic admin RPC (bypasses RLS recursion completely)
+            try {
+                const { data: rpcData, error: rpcError } = await supabase.rpc('admin_update_driver_status', {
+                    p_driver_id: id,
+                    p_status: confirmModal.status
+                });
+                if (!rpcError && rpcData?.success) {
+                    rpcSuccess = true;
+                }
+            } catch (rpcErr) {
+                console.warn("RPC update fallback to direct update:", rpcErr);
             }
+
+            // 2. Direct update fallback if RPC is not present
+            if (!rpcSuccess) {
+                const { error } = await supabase.from('drivers').update({
+                    status: confirmModal.status,
+                    verification_status: confirmModal.status
+                }).eq('id', id);
+
+                if (error) throw error;
+
+                // Send notification to driver
+                if (driver?.user_id) {
+                    await supabase.from('notifications').insert({
+                        user_id: driver.user_id,
+                        title: `Application ${confirmModal.status.charAt(0).toUpperCase() + confirmModal.status.slice(1)}`,
+                        message: confirmModal.status === 'approved'
+                            ? "Congratulations! Your driver application has been approved. You can now start taking rides."
+                            : "Your application was not approved. Please review your documents and try again.",
+                        type: 'system',
+                        status: 'unread',
+                        read: false
+                    }).select();
+                }
+            }
+
+            toast.success(`Driver ${confirmModal.status} successfully!`);
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 1200);
         } catch (err) {
             console.error("Update error:", err);
             toast.error(`Error: ${err.message || 'Failed to update status'}`);
@@ -296,15 +434,36 @@ function DriverReview() {
     const toggleSuspend = async () => {
         setActionLoading(true);
         const newStatus = driver.status === 'suspended' ? 'approved' : 'suspended';
-        const { error } = await supabase.from('drivers').update({ status: newStatus }).eq('id', id);
+        try {
+            let rpcSuccess = false;
+            try {
+                const { data: rpcData, error: rpcError } = await supabase.rpc('admin_update_driver_status', {
+                    p_driver_id: id,
+                    p_status: newStatus
+                });
+                if (!rpcError && rpcData?.success) {
+                    rpcSuccess = true;
+                }
+            } catch (e) {
+                console.warn("RPC suspend fallback to direct update:", e);
+            }
 
-        if (!error) {
-            setDriver(prev => ({ ...prev, status: newStatus }));
+            if (!rpcSuccess) {
+                const { error } = await supabase.from('drivers').update({ 
+                    status: newStatus,
+                    verification_status: newStatus 
+                }).eq('id', id);
+                if (error) throw error;
+            }
+
+            setDriver(prev => ({ ...prev, status: newStatus, verification_status: newStatus }));
             toast.success(`Driver ${newStatus === 'suspended' ? 'Suspended' : 'Activated'}`);
-        } else {
-            toast.error('Failed to change status');
+        } catch (err) {
+            console.error("Toggle suspend error:", err);
+            toast.error(`Failed to change status: ${err.message || ''}`);
+        } finally {
+            setActionLoading(false);
         }
-        setActionLoading(false);
     };
 
     const openConfirmModal = (status) => {
@@ -327,7 +486,8 @@ function DriverReview() {
                 user_id: driver.user_id,
                 message: msg,
                 type: 'driver_alert',
-                status: 'unread'
+                status: 'unread',
+                read: false
             });
             if (error) throw error;
             toast.success("Notification Sent");
@@ -421,20 +581,32 @@ function DriverReview() {
 
                                 <div className="p-8 flex flex-col items-center text-center">
                                     <div className="relative mb-6">
-                                        <div className="w-28 h-28 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 shadow-md border-4 border-white flex items-center justify-center overflow-hidden cursor-pointer hover:shadow-lg transition-shadow group"
+                                        <div className="w-28 h-28 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 shadow-md border-4 border-white flex items-center justify-center overflow-hidden cursor-pointer hover:shadow-lg transition-shadow group relative"
                                             onClick={() => {
-                                                const url = getStorageUrl(driver.profile_photo_url, 'profile_photos');
+                                                const url = signedUrls['profile_photo'] || getStorageUrl(driver.profile_photo_url, 'profile_photos');
                                                 if (url) setImageModal({ open: true, url, label: 'Profile Photo' });
                                             }}>
                                             {driver.profile_photo_url ? (
                                                 <>
-                                                    <img src={getStorageUrl(driver.profile_photo_url, 'profile_photos')} alt={driver.full_name} className="w-full h-full object-cover" />
+                                                    <img
+                                                        src={signedUrls['profile_photo'] || getStorageUrl(driver.profile_photo_url, 'profile_photos')}
+                                                        alt={driver.full_name}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            const fallback = e.currentTarget.parentElement.querySelector('.profile-fallback');
+                                                            if (fallback) fallback.style.display = 'flex';
+                                                        }}
+                                                    />
+                                                    <div className="profile-fallback w-full h-full hidden items-center justify-center bg-amber-100 text-amber-700 font-extrabold text-3xl">
+                                                        {driver.full_name?.charAt(0)?.toUpperCase() || 'D'}
+                                                    </div>
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                         <Search size={24} className="text-white" />
                                                     </div>
                                                 </>
                                             ) : (
-                                                <Loader2 size={40} className="text-amber-500 animate-spin" />
+                                                <User size={44} className="text-amber-600" />
                                             )}
                                         </div>
                                         <div className={cn(
@@ -457,7 +629,7 @@ function DriverReview() {
                                     <p className="text-gray-500 text-sm font-medium mt-1 mb-4">Application ID: #{driver.id.substring(0, 8)}</p>
 
                                     <span className={cn(
-                                        "px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-widest border",
+                                        "px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-widest border shadow-xs",
                                         getStatusTheme(driver.status).bg,
                                         getStatusTheme(driver.status).text,
                                         getStatusTheme(driver.status).border
@@ -482,6 +654,28 @@ function DriverReview() {
                                         </button>
                                     </div>
                                 )}
+
+                                {driver.status === 'approved' && !isEditing && (
+                                    <div className="p-4 bg-white/40 border-t border-gray-100/50 flex gap-3">
+                                        <button
+                                            onClick={() => openConfirmModal('rejected')}
+                                            className="flex-1 bg-white hover:bg-red-50 text-red-600 border border-red-200 font-bold py-2.5 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <X size={16} /> Revoke / Reject Driver
+                                        </button>
+                                    </div>
+                                )}
+
+                                {driver.status === 'rejected' && !isEditing && (
+                                    <div className="p-4 bg-white/40 border-t border-gray-100/50 flex gap-3">
+                                        <button
+                                            onClick={() => openConfirmModal('approved')}
+                                            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <Check size={16} /> Re-Approve Driver
+                                        </button>
+                                    </div>
+                                )}
                             </motion.div>
 
                             <motion.div variants={itemVariants} className="glass-card rounded-[2rem] p-6 lg:p-8 flex flex-col gap-4 border border-white">
@@ -492,9 +686,9 @@ function DriverReview() {
                                         label="Phone"
                                         value={isEditing ? (
                                             <input className="bg-white/50 border border-gray-200 rounded px-2 py-0.5 w-full" value={editedData.phone} onChange={e => setEditedData({ ...editedData, phone: e.target.value })} />
-                                        ) : driver.phone}
+                                        ) : formatPhoneDisplay(driver.phone || driver.phone_number)}
                                     />
-                                    <DetailRow icon={<Mail size={16} />} label="Email" value={driver.email} />
+                                    <DetailRow icon={<Mail size={16} />} label="Email" value={getContactEmail(driver.email) || 'Not provided'} />
                                     <DetailRow icon={<Calendar size={16} />} label="DoB" value={driver.dob} />
                                     <DetailRow icon={<MapPin size={16} />} label="Location" value={`${driver.address || ''}, ${driver.city || ''}`} />
                                 </div>
@@ -530,17 +724,15 @@ function DriverReview() {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-lg"><FileCheck size={24} className="text-amber-500" /> Documents & IDs</h3>
                                     <div className="flex items-center gap-3 flex-wrap">
-                                        {driver?.status === 'pending' && (
-                                            <button
-                                                onClick={handleAIVerify}
-                                                disabled={verifyingDetails}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold rounded-xl shadow-md transition-all text-sm shrink-0"
-                                                title="Extract Details Automatically Using AI"
-                                            >
-                                                {verifyingDetails ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} className="text-yellow-300" />}
-                                                Auto Check
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={handleAIVerify}
+                                            disabled={verifyingDetails}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold rounded-xl shadow-md transition-all text-sm shrink-0"
+                                            title="Extract Details Automatically Using AI"
+                                        >
+                                            {verifyingDetails ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} className="text-yellow-300" />}
+                                            Auto Check
+                                        </button>
                                         <div className="flex flex-wrap gap-2">
                                             {isEditing ? (
                                                 <>
@@ -558,13 +750,13 @@ function DriverReview() {
                                 </div>
 
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <PhotoCard label="DL Front" url={getStorageUrl(driver.dl_front_url, 'dl_front')} onOpen={setImageModal} />
-                                    <PhotoCard label="DL Back" url={getStorageUrl(driver.dl_back_url, 'dl_back')} onOpen={setImageModal} />
-                                    <PhotoCard label="ID Front" url={getStorageUrl(driver.aadhaar_pan_front_url, 'aadhaar_front')} onOpen={setImageModal} />
-                                    <PhotoCard label="ID Back" url={getStorageUrl(driver.aadhaar_pan_back_url, 'aadhaar_back')} onOpen={setImageModal} />
-                                    <PhotoCard label="Insurance" url={getStorageUrl(driver.insurance_url, 'insurance')} onOpen={setImageModal} />
-                                    <PhotoCard label="RC Front" url={getStorageUrl(driver.rc_front_url, 'rc_front')} onOpen={setImageModal} />
-                                    <PhotoCard label="RC Back" url={getStorageUrl(driver.rc_back_url, 'rc_back')} onOpen={setImageModal} />
+                                    <PhotoCard label="DL Front" url={signedUrls['dl_front'] || getStorageUrl(driver.dl_front_url, 'dl_front')} onOpen={setImageModal} isLoading={resolvingUrls} />
+                                    <PhotoCard label="DL Back" url={signedUrls['dl_back'] || getStorageUrl(driver.dl_back_url, 'dl_back')} onOpen={setImageModal} isLoading={resolvingUrls} />
+                                    <PhotoCard label={driver.aadhaar_pan_type === 'PAN' || driver.aadhaar_pan_front_url?.includes('pan_') ? "PAN Front" : "ID Front"} url={signedUrls['id_front'] || getStorageUrl(driver.aadhaar_pan_front_url, 'aadhaar_front')} onOpen={setImageModal} isLoading={resolvingUrls} />
+                                    <PhotoCard label={driver.aadhaar_pan_type === 'PAN' || driver.aadhaar_pan_back_url?.includes('pan_') ? "PAN Back" : "ID Back"} url={signedUrls['id_back'] || getStorageUrl(driver.aadhaar_pan_back_url, 'aadhaar_back')} onOpen={setImageModal} isLoading={resolvingUrls} />
+                                    <PhotoCard label="Insurance" url={signedUrls['insurance'] || getStorageUrl(driver.insurance_url, 'insurance')} onOpen={setImageModal} isLoading={resolvingUrls} />
+                                    <PhotoCard label="RC Front" url={signedUrls['rc_front'] || getStorageUrl(driver.rc_front_url, 'rc_front')} onOpen={setImageModal} isLoading={resolvingUrls} />
+                                    <PhotoCard label="RC Back" url={signedUrls['rc_back'] || getStorageUrl(driver.rc_back_url, 'rc_back')} onOpen={setImageModal} isLoading={resolvingUrls} />
                                 </div>
                             </motion.div>
                         </div>
@@ -586,10 +778,21 @@ function DriverReview() {
                         >
                             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                                 <h3 className="font-bold text-gray-900 text-lg">{imageModal.label}</h3>
-                                <button onClick={() => setImageModal({ open: false, url: '', label: '' })} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"><X size={24} /></button>
+                                <div className="flex items-center gap-2">
+                                    <a
+                                        href={imageModal.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors flex items-center gap-1 text-xs font-bold"
+                                        title="Open high-resolution raw file"
+                                    >
+                                        <ExternalLink size={18} />
+                                    </a>
+                                    <button onClick={() => setImageModal({ open: false, url: '', label: '' })} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"><X size={24} /></button>
+                                </div>
                             </div>
-                            <div className="p-4 bg-gray-100 flex-1 overflow-auto flex items-center justify-center">
-                                <img src={imageModal.url} alt={imageModal.label} className="max-w-full max-h-full object-contain rounded-xl shadow-sm border border-gray-200" />
+                            <div className="p-4 bg-gray-900/5 flex-1 overflow-auto flex items-center justify-center min-h-[300px]">
+                                <img src={imageModal.url} alt={imageModal.label} className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-lg border border-gray-200" />
                             </div>
                         </motion.div>
                     </motion.div>
@@ -640,37 +843,111 @@ const DetailRow = ({ icon, label, value }) => (
     </div>
 );
 
-const PhotoCard = ({ label, url, onOpen }) => (
-    <div
-        onClick={() => url && onOpen({ open: true, url, label })}
-        className={cn(
-            "relative aspect-square rounded-2xl border-2 overflow-hidden flex flex-col group transition-all",
-            url ? "border-transparent bg-gray-100 cursor-pointer shadow-sm hover:shadow-md" : "border-dashed border-gray-200 bg-gray-50/50"
-        )}
-    >
-        {url ? (
-            <>
-                <img src={url} alt={label}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    onError={(e) => {
-                        e.target.src = 'https://images.unsplash.com/photo-1544221156-614adeef4a0a?auto=format&fit=crop&q=80&w=200'; // Fallback
-                    }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-100" />
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="bg-white/90 backdrop-blur p-2 rounded-full text-gray-900 transform scale-50 group-hover:scale-100 transition-transform"><ZoomIn size={18} /></div>
-                </div>
-                <div className="absolute bottom-2 left-2 right-2"><span className="text-white text-[10px] font-bold truncate block transition-all group-hover:translate-y-[-2px]">{label}</span></div>
-            </>
-        ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
-                <FileText size={24} className="opacity-50" />
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 text-center text-gray-400">{label}</span>
+const PhotoCard = ({ label, url, onOpen, isLoading = false }) => {
+    const [imgStatus, setImgStatus] = useState('loading'); // 'loading' | 'loaded' | 'error' | 'empty'
+    const [retryCount, setRetryCount] = useState(0);
+
+    useEffect(() => {
+        if (!url) {
+            setImgStatus('empty');
+        } else {
+            setImgStatus('loading');
+        }
+    }, [url, retryCount]);
+
+    if (!url) {
+        return (
+            <div className="relative aspect-square rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/60 flex flex-col items-center justify-center p-4 text-center">
+                <FileText size={26} className="text-gray-300 mb-2" />
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</span>
+                <span className="text-[9px] font-semibold text-gray-400 mt-1 bg-gray-100 px-2 py-0.5 rounded-full">Not Uploaded</span>
             </div>
-        )}
-    </div>
-);
+        );
+    }
+
+    return (
+        <div
+            onClick={() => imgStatus === 'loaded' && onOpen({ open: true, url, label })}
+            className={cn(
+                "relative aspect-square rounded-2xl border-2 overflow-hidden flex flex-col group transition-all",
+                imgStatus === 'loaded'
+                    ? "border-transparent bg-gray-900 cursor-pointer shadow-sm hover:shadow-lg hover:border-amber-400"
+                    : "border-gray-200 bg-gray-50"
+            )}
+        >
+            {/* Loading Spinner */}
+            {(imgStatus === 'loading' || isLoading) && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-100/90 backdrop-blur-xs p-3 text-center">
+                    <Loader2 size={24} className="animate-spin text-amber-500 mb-2" />
+                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">{label}</span>
+                    <span className="text-[9px] text-gray-400 mt-0.5">Loading document...</span>
+                </div>
+            )}
+
+            {/* Error / Corrupted State */}
+            {imgStatus === 'error' && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-amber-50/90 p-3 text-center border-2 border-dashed border-amber-300">
+                    <AlertTriangle size={24} className="text-amber-600 mb-1" />
+                    <span className="text-[11px] font-bold text-gray-900 uppercase tracking-tight">{label}</span>
+                    <span className="text-[10px] font-semibold text-amber-700 mt-0.5">Scan Unreadable</span>
+                    <p className="text-[9px] text-gray-500 mt-0.5 leading-tight">File corrupted or 2-byte test data</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setRetryCount(c => c + 1);
+                            }}
+                            className="text-[9px] font-bold bg-white text-gray-700 px-2 py-1 rounded-md border border-gray-200 shadow-xs hover:bg-gray-50"
+                        >
+                            Retry
+                        </button>
+                        <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[9px] font-bold bg-amber-500 text-white px-2 py-1 rounded-md shadow-xs hover:bg-amber-600"
+                        >
+                            Raw Link
+                        </a>
+                    </div>
+                </div>
+            )}
+
+            {/* Actual Document Image */}
+            <img
+                key={`${url}-${retryCount}`}
+                src={url}
+                alt={label}
+                onLoad={() => setImgStatus('loaded')}
+                onError={() => setImgStatus('error')}
+                className={cn(
+                    "w-full h-full object-cover transition-all duration-500 group-hover:scale-105",
+                    imgStatus === 'loaded' ? "opacity-100" : "opacity-0"
+                )}
+            />
+
+            {/* Hover Overlay when loaded */}
+            {imgStatus === 'loaded' && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <div className="bg-white/95 backdrop-blur p-2.5 rounded-full text-gray-900 shadow-md transform scale-75 group-hover:scale-100 transition-transform">
+                            <ZoomIn size={18} />
+                        </div>
+                    </div>
+                    <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
+                        <span className="text-white text-[11px] font-extrabold truncate drop-shadow-sm">{label}</span>
+                        <span className="text-[9px] font-bold text-emerald-300 bg-emerald-950/60 px-1.5 py-0.5 rounded backdrop-blur-xs border border-emerald-500/30">Verified</span>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
 
 export default DriverReview;
+
 
 

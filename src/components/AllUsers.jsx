@@ -1,10 +1,11 @@
 import React, { useEffect, useState, memo } from 'react';
 import { supabase } from '../supabaseClient';
-import { Loader2, User, Search, MapPin, Mail, Phone, Clock, Calendar, ShieldCheck, X, Navigation, Ban, CheckCircle } from 'lucide-react';
+import { Loader2, User, Search, MapPin, Mail, Phone, Clock, Calendar, ShieldCheck, X, Navigation, Ban, CheckCircle, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
+import { getUserContactInfo, isSyntheticEmail, getContactEmail, formatPhoneDisplay } from '../lib/identityUtils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Global Styles from Hero
@@ -127,6 +128,7 @@ function AllUsers() {
     const [filter, setFilter] = useState('all');
     const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [selectedDriverId, setSelectedDriverId] = useState(null);
     const [userTrips, setUserTrips] = useState([]);
     const [loadingTrips, setLoadingTrips] = useState(false);
     const navigate = useNavigate();
@@ -153,8 +155,20 @@ function AllUsers() {
     };
     const handleUserSelect = async (user) => {
         setSelectedUser(user);
+        setSelectedDriverId(null);
         setLoadingTrips(true);
         try {
+            // Check if user is also registered as a driver
+            const { data: driverRow } = await supabase
+                .from('drivers')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (driverRow?.id) {
+                setSelectedDriverId(driverRow.id);
+            }
+
             const { data, error } = await supabase
                 .from('trips')
                 .select('*')
@@ -190,9 +204,14 @@ function AllUsers() {
         }
     };
     const filteredUsers = users.filter(user => {
-        const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.phone_number?.includes(searchTerm);
+        const contact = getUserContactInfo(user);
+        const term = searchTerm.toLowerCase();
+        const matchesSearch =
+            (user.full_name?.toLowerCase().includes(term)) ||
+            (contact.realEmail?.toLowerCase().includes(term)) ||
+            (user.phone?.includes(searchTerm)) ||
+            (user.phone_number?.includes(searchTerm)) ||
+            (contact.canonicalPhone?.includes(searchTerm));
 
         if (!matchesSearch) return false;
 
@@ -295,71 +314,88 @@ function AllUsers() {
                             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                         >
                             <AnimatePresence>
-                                {filteredUsers.map(user => (
-                                    <motion.div
-                                        key={user.id}
-                                        variants={itemVariants}
-                                        layout
-                                        className="glass-card glass-card-hover rounded-2xl p-6 flex flex-col"
-                                    >
-                                        {/* Identify Header */}
-                                        <div className="flex items-start gap-4 mb-5">
-                                            <div className="relative">
-                                                {user.avatar_url ? (
-                                                    <img src={user.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md bg-gray-100" />
-                                                ) : (
-                                                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-white shadow-md flex items-center justify-center text-blue-500 font-bold text-xl">
-                                                        {user.full_name ? user.full_name.charAt(0).toUpperCase() : '?'}
-                                                    </div>
-                                                )}
-                                                {user.role === 'admin' && (
-                                                    <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white p-1 rounded-full border-2 border-white" title="Admin">
-                                                        <ShieldCheck size={12} strokeWidth={3} />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-col flex-1 pt-1">
-                                                <h3 className="text-lg font-bold text-gray-900 leading-tight mb-1">{user.full_name || 'Anonymous User'}</h3>
-                                                <span className={`text-xs font-semibold w-max px-2 py-0.5 rounded uppercase tracking-wider ${user.role === 'admin' ? 'bg-amber-100 text-amber-700' :
-                                                        user.role === 'driver' ? 'bg-emerald-100 text-emerald-700' :
-                                                            'bg-blue-100 text-blue-700'
-                                                    }`}>
-                                                    {user.role || 'Passenger'}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Contact Grid */}
-                                        <div className="bg-white/60 p-4 rounded-xl space-y-3 mb-5 flex-1 border border-gray-100/50">
-                                            <div className="flex items-center gap-3 text-sm">
-                                                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                                                    <Mail size={14} className="text-blue-500" />
-                                                </div>
-                                                <span className="text-gray-700 font-medium truncate" title={user.email}>{user.email || '—'}</span>
-                                            </div>
-                                            <div className="flex items-center gap-3 text-sm">
-                                                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                                                    <Phone size={14} className="text-blue-500" />
-                                                </div>
-                                                <span className="text-gray-700 font-medium">{user.phone_number || '—'}</span>
-                                            </div>
-                                            <div className="flex items-center gap-3 text-sm">
-                                                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                                                    <Calendar size={14} className="text-blue-500" />
-                                                </div>
-                                                <span className="text-gray-500">Joined <strong className="text-gray-700">{new Date(user.created_at).toLocaleDateString()}</strong></span>
-                                            </div>
-                                        </div>
-
-                                        {/* Action */}
-                                        <button
-                                            onClick={() => handleUserSelect(user)}
-                                            className="w-full py-2.5 rounded-xl font-semibold text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200/50 transition-colors flex justify-center items-center gap-2"
+                                {filteredUsers.map(user => {
+                                    const contact = getUserContactInfo(user);
+                                    return (
+                                        <motion.div
+                                            key={user.id}
+                                            variants={itemVariants}
+                                            layout
+                                            className="glass-card glass-card-hover rounded-2xl p-6 flex flex-col"
                                         >
-                                            View Full Activity
-                                        </button>
-                                    </motion.div>
-                                ))}
+                                            {/* Identify Header */}
+                                            <div className="flex items-start gap-4 mb-5">
+                                                <div className="relative">
+                                                    {user.avatar_url ? (
+                                                        <img src={user.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md bg-gray-100" />
+                                                    ) : (
+                                                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-white shadow-md flex items-center justify-center text-blue-500 font-bold text-xl">
+                                                            {user.full_name ? user.full_name.charAt(0).toUpperCase() : '?'}
+                                                        </div>
+                                                    )}
+                                                    {user.role === 'admin' && (
+                                                        <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white p-1 rounded-full border-2 border-white" title="Admin">
+                                                            <ShieldCheck size={12} strokeWidth={3} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col flex-1 pt-1">
+                                                    <h3 className="text-lg font-bold text-gray-900 leading-tight mb-1">{user.full_name || 'Anonymous User'}</h3>
+                                                    <span className={`text-xs font-semibold w-max px-2 py-0.5 rounded uppercase tracking-wider ${user.role === 'admin' ? 'bg-amber-100 text-amber-700' :
+                                                            user.role === 'driver' ? 'bg-emerald-100 text-emerald-700' :
+                                                                'bg-blue-100 text-blue-700'
+                                                        }`}>
+                                                        {user.role || 'Passenger'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Contact Grid */}
+                                            <div className="bg-white/60 p-4 rounded-xl space-y-3 mb-5 flex-1 border border-gray-100/50">
+                                                <div className="flex items-center gap-3 text-sm">
+                                                    <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                                                        <Mail size={14} className="text-blue-500" />
+                                                    </div>
+                                                    <span
+                                                        className={`truncate ${contact.isEmailAvailable ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}
+                                                        title={contact.realEmail || 'No email provided'}
+                                                    >
+                                                        {contact.emailDisplay}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm">
+                                                    <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                                                        <Phone size={14} className="text-blue-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between flex-1 gap-2">
+                                                        <span className={`font-medium ${contact.isPhoneAvailable ? 'text-gray-700' : 'text-gray-400 italic text-xs'}`}>
+                                                            {contact.phoneDisplay}
+                                                        </span>
+                                                        {contact.isPhoneVerified && (
+                                                            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200/70 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                                                                <CheckCircle size={10} /> Verified
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm">
+                                                    <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                                                        <Calendar size={14} className="text-blue-500" />
+                                                    </div>
+                                                    <span className="text-gray-500">Joined <strong className="text-gray-700">{new Date(user.created_at).toLocaleDateString()}</strong></span>
+                                                </div>
+                                            </div>
+
+                                            {/* Action */}
+                                            <button
+                                                onClick={() => handleUserSelect(user)}
+                                                className="w-full py-2.5 rounded-xl font-semibold text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200/50 transition-colors flex justify-center items-center gap-2"
+                                            >
+                                                View Full Activity
+                                            </button>
+                                        </motion.div>
+                                    );
+                                })}
                             </AnimatePresence>
                         </motion.div>
                     )}
@@ -387,10 +423,26 @@ function AllUsers() {
                                     )}
                                     <div>
                                         <h2 className="text-2xl font-extrabold text-gray-900 leading-tight">{selectedUser.full_name || 'Anonymous User'}</h2>
-                                        <p className="text-gray-500 text-sm font-medium">{selectedUser.email}</p>
+                                        <p className={`text-sm font-medium ${getUserContactInfo(selectedUser).isEmailAvailable ? 'text-gray-500' : 'text-gray-400 italic'}`}>
+                                            {getUserContactInfo(selectedUser).emailDisplay}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
+                                    {selectedDriverId && (
+                                        <button
+                                            onClick={() => {
+                                                const dId = selectedDriverId;
+                                                setSelectedUser(null);
+                                                navigate(`/driver/${dId}`);
+                                            }}
+                                            className="px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 transition-colors shadow-sm bg-amber-500 text-white hover:bg-amber-600 shadow-amber-500/20"
+                                            title="Inspect driving license, vehicle RC, and ID proofs"
+                                        >
+                                            <Shield size={16} />
+                                            <span>Driver Proofs</span>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => toggleBlockUser(selectedUser)}
                                         className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 transition-colors shadow-sm ${selectedUser.is_blocked ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'}`}
@@ -406,10 +458,23 @@ function AllUsers() {
 
                             {/* Scrollable Body */}
                             <div className="p-6 md:p-8 flex-1 overflow-y-auto bg-white">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                                         <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Phone Number</span>
-                                        <div className="font-semibold text-gray-900">{selectedUser.phone_number || 'Not provided'}</div>
+                                        <div className="font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
+                                            <span>{getUserContactInfo(selectedUser).phoneDisplay}</span>
+                                            {getUserContactInfo(selectedUser).isPhoneVerified && (
+                                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                    <CheckCircle size={11} /> Verified
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Email Address</span>
+                                        <div className={`font-semibold ${getUserContactInfo(selectedUser).isEmailAvailable ? 'text-gray-900' : 'text-gray-400 italic'}`}>
+                                            {getUserContactInfo(selectedUser).emailDisplay}
+                                        </div>
                                     </div>
                                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                                         <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Joined Date</span>

@@ -4,11 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Save, Loader2, DollarSign, Settings as SettingsIcon, Percent, MapPin,
     TrendingUp, Zap, AlertTriangle, Check, ChevronDown, ChevronUp,
-    RotateCcw, Shield, IndianRupee, Layers, Car, Route, Info, Landmark
+    RotateCcw, Shield, IndianRupee, Layers, Car, Route, Info, Landmark, Users
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageLayout from './shared/PageLayout';
 import { formatCurrency } from '../lib/utils';
+import StaffManagementSection from './StaffManagementSection';
+import StaffAuditLogsSection from './StaffAuditLogsSection';
+import { useStaffAuth } from '../context/StaffAuthContext';
 
 // ─── Default Tier Data (mirrors calculate-fare edge function) ────────────────
 const DEFAULT_TIERS = [
@@ -43,12 +46,15 @@ const TIER_COLORS = [
 
 // ─── Settings Component ─────────────────────────────────────────────────────
 function Settings() {
+    const { hasPermission } = useStaffAuth();
+    const [activeTab, setActiveTab] = useState('pricing'); // 'pricing' | 'staff' | 'audit'
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [expandedTier, setExpandedTier] = useState(null);
     const [hasChanges, setHasChanges] = useState(false);
     const [originalSettings, setOriginalSettings] = useState(DEFAULT_SETTINGS);
+
 
     // ─── Fetch Settings ─────────────────────────────────────────────────
     const fetchSettings = useCallback(async () => {
@@ -183,11 +189,11 @@ function Settings() {
                             </div>
                             <div>
                                 <h1 className="text-xl font-black text-gray-900 tracking-tight">Platform Settings</h1>
-                                <p className="text-xs text-gray-500 font-medium">Commission, pricing tiers, and surge config</p>
+                                <p className="text-xs text-gray-500 font-medium">Pricing tiers, staff access management & audit console</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            {hasChanges && (
+                            {activeTab === 'pricing' && hasChanges && (
                                 <motion.button
                                     initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
@@ -198,22 +204,71 @@ function Settings() {
                                     Discard
                                 </motion.button>
                             )}
-                            <motion.button
-                                whileHover={hasChanges ? { scale: 1.02 } : {}}
-                                whileTap={hasChanges ? { scale: 0.97 } : {}}
-                                onClick={handleSave}
-                                disabled={saving || !hasChanges}
-                                className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-md ${
-                                    hasChanges
-                                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-amber-200/40'
-                                        : 'bg-gray-100 text-gray-400 shadow-none cursor-not-allowed'
-                                }`}
-                            >
-                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                {saving ? 'Saving…' : 'Save Changes'}
-                            </motion.button>
+                            {activeTab === 'pricing' && (
+                                <motion.button
+                                    whileHover={hasChanges ? { scale: 1.02 } : {}}
+                                    whileTap={hasChanges ? { scale: 0.97 } : {}}
+                                    onClick={handleSave}
+                                    disabled={saving || !hasChanges}
+                                    className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-md ${
+                                        hasChanges
+                                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-amber-200/40'
+                                            : 'bg-gray-100 text-gray-400 shadow-none cursor-not-allowed'
+                                    }`}
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    {saving ? 'Saving…' : 'Save Changes'}
+                                </motion.button>
+                            )}
                         </div>
                     </div>
+
+                    {/* ── Tabs Navigation ─────────────────────────────── */}
+                    <div className="flex items-center gap-2 mb-6 border-b border-gray-200/60 pb-3 overflow-x-auto no-scrollbar">
+                        <button
+                            onClick={() => setActiveTab('pricing')}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                                activeTab === 'pricing'
+                                    ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                        >
+                            <DollarSign size={15} />
+                            Platform Pricing & Tiers
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('staff')}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                                activeTab === 'staff'
+                                    ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                        >
+                            <Users size={15} />
+                            Staff & Access Management
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('audit')}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                                activeTab === 'audit'
+                                    ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                        >
+                            <Shield size={15} />
+                            Administrative Audit Logs
+                        </button>
+                    </div>
+
+                    {/* ── Tab Content: Staff Management ────────────────── */}
+                    {activeTab === 'staff' && <StaffManagementSection />}
+
+                    {/* ── Tab Content: Audit Logs ──────────────────────── */}
+                    {activeTab === 'audit' && <StaffAuditLogsSection />}
+
+                    {/* ── Tab Content: Pricing Settings ─────────────────── */}
+                    {activeTab === 'pricing' && (
+                        <>
 
                     {/* ── Unsaved Banner ─────────────────────────────── */}
                     <AnimatePresence>
@@ -533,6 +588,8 @@ function Settings() {
                             </p>
                         </div>
                     </div>
+                        </>
+                    )}
                 </div>
             </div>
         </PageLayout>
