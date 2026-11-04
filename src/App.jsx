@@ -219,6 +219,7 @@ function App() {
                     <AdminNotifications />
                     <Routes>
                         <Route path="/" element={<AdminLogin />} />
+                        <Route path="/login" element={<AdminLogin />} />
                         <Route path="/dashboard" element={<PrivateRoute requiredPermission="dashboard.view"><Dashboard /></PrivateRoute>} />
                         <Route path="/users" element={<PrivateRoute requiredPermission="users.view"><AllUsers /></PrivateRoute>} />
                         <Route path="/trips" element={<PrivateRoute requiredPermission="trips.view"><AllTrips /></PrivateRoute>} />
